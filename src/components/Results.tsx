@@ -224,7 +224,7 @@ export default function Results() {
           transition={{ duration: 0.5 }}
           className="glass rounded-3xl overflow-hidden"
         >
-          <div className="h-[70vh] min-h-[26rem] max-h-[44rem] w-full">
+          <div className="h-[70dvh] min-h-[26rem] max-h-[44rem] w-full">
             <WorksWheel items={certificateItems} label={t.results.gallery} />
           </div>
         </motion.div>

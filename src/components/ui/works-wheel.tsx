@@ -41,7 +41,7 @@ export interface WorksWheelProps extends Omit<React.ComponentPropsWithoutRef<'se
    against DRUM sets how hard the neighbours rotate away, and DRUM against LENS
    decides whether they land inside the frame or run off it. */
 const CARD_H = 0.6; // front card height, of the stage
-const CARD_MAX_W = 0.5; // ... but never wider than this much of the stage
+const CARD_MAX_W = 0.55; // ... but never wider than this much of the stage
 const CARD_RATIO = 1.45; // card width / height
 const STEP = 40; // degrees between cards on the drum
 const DRUM = 2.22; // drum radius, in card heights - and everything below likewise
@@ -162,8 +162,8 @@ export function WorksWheel({
       drumR,
       bow: cardH * BOW,
       depth: cardH * LENS,
-      title: cardH * TITLE,
-      index: cardH * INDEX,
+      title: Math.max(cardH * TITLE, 20),
+      index: Math.max(cardH * INDEX * 1.15, 13),
     };
   }, [stage, count]);
 
@@ -250,7 +250,8 @@ export function WorksWheel({
     };
   }, [to, last]);
 
-  const drag = React.useRef<number | null>(null);
+  const drag = React.useRef<{ x: number; y: number } | null>(null);
+  const dragTouch = React.useRef(false);
 
   return (
     <section
@@ -264,16 +265,23 @@ export function WorksWheel({
         role="listbox"
         aria-label={label}
         aria-activedescendant={`works-wheel-${active}`}
-        className="absolute inset-0 cursor-grab touch-pan-x outline-none focus-visible:outline-2 focus-visible:outline-accent-400 focus-visible:-outline-offset-4 active:cursor-grabbing"
+        className="absolute inset-0 cursor-grab touch-pan-y outline-none focus-visible:outline-2 focus-visible:outline-accent-400 focus-visible:-outline-offset-4 active:cursor-grabbing"
         style={{ perspective: `${metrics.depth}px` }}
         onPointerDown={(event) => {
-          drag.current = event.clientY;
+          drag.current = { x: event.clientX, y: event.clientY };
+          dragTouch.current = event.pointerType === 'touch';
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
           if (drag.current === null) return;
-          to(target.current + (drag.current - event.clientY) / DRAG_UNITS);
-          drag.current = event.clientY;
+          // Touch turns the wheel with a horizontal swipe so the page can
+          // still be scrolled vertically past the stage.
+          if (dragTouch.current) {
+            to(target.current + (event.clientX - drag.current.x) / DRAG_UNITS);
+          } else {
+            to(target.current + (drag.current.y - event.clientY) / DRAG_UNITS);
+          }
+          drag.current = { x: event.clientX, y: event.clientY };
         }}
         onPointerUp={() => {
           // Land on an item rather than between two.
@@ -348,10 +356,11 @@ export function WorksWheel({
         {label}
       </div>
       {/* Drum mode: the holder's name runs down the left, the result panel
-          down the right, both trading places with the ring label. */}
+          down the right, both trading places with the ring label. Hidden on
+          phones - there the certificate itself carries every detail. */}
       <div
         ref={titleRef}
-        className="pointer-events-none absolute top-1/2 left-[4%] w-[26%] -translate-y-1/2 tracking-tight font-heading leading-[1.1] text-white opacity-0"
+        className="pointer-events-none absolute top-1/2 left-[4%] hidden w-[26%] -translate-y-1/2 tracking-tight font-heading leading-[1.1] text-white opacity-0 sm:block"
         style={{ fontSize: metrics.title }}
       >
         <span className="block break-words">{items[active]?.caption ?? items[active]?.title}</span>
@@ -359,8 +368,8 @@ export function WorksWheel({
       {items[active]?.details?.length ? (
         <div
           ref={detailsRef}
-          className="pointer-events-none absolute top-1/2 right-[4%] w-[24%] -translate-y-1/2 opacity-0"
-          style={{ fontSize: metrics.index * 1.15 }}
+          className="pointer-events-none absolute top-1/2 right-[4%] hidden w-[24%] -translate-y-1/2 opacity-0 sm:block"
+          style={{ fontSize: metrics.index }}
         >
           <dl className="space-y-[0.6em]">
             {items[active].details?.map((row) => (

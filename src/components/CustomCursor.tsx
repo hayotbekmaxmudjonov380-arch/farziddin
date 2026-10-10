@@ -9,6 +9,9 @@ export default function CustomCursor() {
   const currentRef = useRef({ x: -100, y: -100 });
 
   useEffect(() => {
+    // Touch devices keep the native cursor; no listeners, no rAF loop.
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+
     const handleMove = (e: MouseEvent) => {
       targetRef.current = { x: e.clientX, y: e.clientY };
       if (!isVisible) setIsVisible(true);

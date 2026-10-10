@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Phone, Send, ArrowRight, Atom } from 'lucide-react';
 import { useI18n } from '@/i18n/I18nContext';
-import Molecule3D from './Molecule3D';
+import ScientificAtom3D from './ScientificAtom3D';
 
 const floatFormulas = [
   { text: 'H₂O', top: '15%', left: '8%', delay: 0 },
@@ -16,7 +16,7 @@ export default function Hero() {
   const { t } = useI18n();
 
   return (
-    <section id="hero" className="relative min-h-screen flex items-center overflow-hidden pt-20">
+    <section id="hero" className="relative min-h-[100dvh] flex items-center overflow-hidden pt-20">
       {/* Background layers */}
       <div className="absolute inset-0 grid-bg opacity-40" />
       <div className="absolute inset-0 radial-glow" />
@@ -120,14 +120,14 @@ export default function Hero() {
             </motion.div>
           </div>
 
-          {/* Right: 3D Molecule */}
+          {/* Right: Scientific 3D Atom & Molecule Simulation */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.88 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.2 }}
-            className="order-1 lg:order-2 flex items-center justify-center py-8"
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="order-1 lg:order-2 flex items-center justify-center py-4 lg:py-0 w-full"
           >
-            <Molecule3D />
+            <ScientificAtom3D />
           </motion.div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, Phone, FlaskConical } from 'lucide-react';
+import { Menu, X, Phone } from 'lucide-react';
 import { useI18n } from '@/i18n/I18nContext';
 import type { Lang } from '@/i18n/translations';
 
@@ -33,14 +33,13 @@ export default function Navbar() {
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <a href="#hero" className="flex items-center gap-2 group">
-          <div className="relative">
-            <FlaskConical className="h-7 w-7 text-accent-400 transition-transform group-hover:rotate-12" />
-            <div className="absolute inset-0 bg-accent-400/30 blur-lg rounded-full" />
-          </div>
-          <span className="font-heading text-lg font-bold text-white hidden sm:block">
-            FARZIDDIN <span className="text-accent-400">CHEMISTRY</span>
-          </span>
+        <a href="#hero" className="flex items-center group">
+          <img
+            src="/images/logotip.png"
+            alt="AMINOV CHEMISTRY"
+            className="h-10 sm:h-12 w-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-105"
+            draggable={false}
+          />
         </a>
 
         {/* Desktop nav */}

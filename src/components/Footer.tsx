@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MapPin, Phone, Send, Instagram, Clock, FlaskConical } from 'lucide-react';
+import { MapPin, Phone, Send, Instagram, Clock } from 'lucide-react';
 import { useI18n } from '@/i18n/I18nContext';
 
 export default function Footer() {
@@ -19,11 +19,13 @@ export default function Footer() {
         >
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <FlaskConical className="h-7 w-7 text-accent-400" />
-              <span className="font-heading text-lg font-bold text-white">
-                FARZIDDIN <span className="text-accent-400">CHEMISTRY</span>
-              </span>
+            <div className="mb-4">
+              <img
+                src="/images/logotip.png"
+                alt="AMINOV CHEMISTRY"
+                className="h-14 w-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
+                draggable={false}
+              />
             </div>
             <p className="text-white/50 text-sm leading-relaxed">
               {t.about.title} — {t.about.subtitle}
