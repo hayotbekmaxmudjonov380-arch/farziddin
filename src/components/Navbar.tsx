@@ -9,7 +9,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -27,22 +27,27 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? 'glass-strong py-3' : 'bg-transparent py-5'
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'glass-strong py-2.5 sm:py-3 shadow-lg' : 'bg-transparent py-3 sm:py-5'
       }`}
+      style={{
+        paddingTop: scrolled
+          ? 'max(0.65rem, env(safe-area-inset-top))'
+          : 'max(0.75rem, env(safe-area-inset-top))',
+      }}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl 2xl:max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <a href="#hero" className="flex items-center group">
+        <a href="#hero" className="flex items-center group py-1">
           <img
             src="/images/logotip.png"
             alt="AMINOV CHEMISTRY"
-            className="h-10 sm:h-12 w-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-105"
+            className="h-9 sm:h-11 w-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-105"
             draggable={false}
           />
         </a>
 
-        {/* Desktop nav */}
+        {/* Desktop Navigation Links */}
         <div className="hidden lg:flex items-center gap-1">
           {navItems.map((item) => (
             <a
@@ -56,17 +61,18 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-3">
+        {/* Right Side Controls: Language Switcher, Apply CTA, Mobile Menu Toggle */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Language switcher */}
-          <div className="flex items-center gap-1 rounded-full border border-white/10 bg-navy-900/50 px-1 py-1 backdrop-blur">
+          <div className="flex items-center gap-0.5 sm:gap-1 rounded-full border border-white/10 bg-navy-900/60 p-0.5 sm:p-1 backdrop-blur-md">
             {langs.map((l) => (
               <button
                 key={l}
+                type="button"
                 onClick={() => setLang(l)}
-                className={`px-2.5 py-1 text-xs font-bold uppercase rounded-full transition-all duration-200 ${
+                className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-bold uppercase rounded-full transition-all duration-200 ${
                   lang === l
-                    ? 'bg-accent-400 text-navy-950'
+                    ? 'bg-accent-400 text-navy-950 shadow-sm'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
@@ -75,53 +81,56 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* CTA */}
+          {/* Desktop/Tablet CTA */}
           <a
             href="#apply"
-            className="hidden sm:flex magnetic-btn items-center rounded-full bg-accent-400 px-5 py-2.5 text-sm font-bold text-navy-950 glow-accent hover:bg-accent-300 transition-colors"
+            className="hidden sm:flex magnetic-btn items-center rounded-full bg-accent-400 px-5 py-2 text-sm font-bold text-navy-950 glow-accent hover:bg-accent-300 transition-colors"
           >
             {t.nav.apply}
           </a>
 
-          {/* Mobile menu toggle */}
+          {/* Mobile menu toggle (Burger) */}
           <button
-            className="lg:hidden text-white p-2"
+            type="button"
+            className="lg:hidden text-white p-2 rounded-lg hover:bg-white/5 active:scale-95 transition-all"
             onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Menu"
+            aria-label="Menyu"
           >
-            {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {menuOpen ? <X className="h-6 w-6 text-accent-400" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile Drawer Menu */}
       {menuOpen && (
-        <div className="lg:hidden glass-strong border-t border-white/10 mt-3">
-          <div className="flex flex-col gap-1 px-4 py-4">
+        <div className="lg:hidden glass-strong border-t border-white/10 mt-2 px-4 py-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
+          <div className="flex flex-col gap-1">
             {navItems.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className="px-4 py-3 text-white/80 hover:text-accent-400 hover:bg-white/5 rounded-lg transition-colors"
+                className="px-4 py-3 text-white/80 hover:text-accent-400 hover:bg-white/5 rounded-xl transition-colors font-medium text-sm"
               >
                 {item.label}
               </a>
             ))}
-            <a
-              href="#apply"
-              onClick={() => setMenuOpen(false)}
-              className="mt-2 flex items-center justify-center gap-2 rounded-full bg-accent-400 px-5 py-3 font-bold text-navy-950"
-            >
-              {t.nav.apply}
-            </a>
-            <a
-              href="tel:+998976021642"
-              className="flex items-center justify-center gap-2 rounded-full border border-accent-400/30 px-5 py-3 text-accent-400"
-            >
-              <Phone className="h-4 w-4" />
-              +998 97 602 16 42
-            </a>
+            <div className="pt-2 mt-2 border-t border-white/10 flex flex-col gap-2.5">
+              <a
+                href="#apply"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center justify-center gap-2 rounded-full bg-accent-400 px-5 py-3 font-bold text-navy-950 glow-accent"
+              >
+                {t.nav.apply}
+              </a>
+              <a
+                href="tel:+998976021642"
+                className="flex items-center justify-center gap-2 rounded-full border border-accent-400/30 px-5 py-2.5 text-accent-400 text-sm font-medium"
+              >
+                <Phone className="h-4 w-4" />
+                +998 97 602 16 42
+              </a>
+            </div>
           </div>
         </div>
       )}
