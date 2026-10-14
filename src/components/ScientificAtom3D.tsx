@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Atom, Play, Pause, Sparkles, Layers } from 'lucide-react';
 import { useI18n } from '@/i18n/I18nContext';
@@ -26,32 +26,43 @@ export default function ScientificAtom3D() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // 6-second auto-cycle for atoms
-  const timerRef = useRef<number | null>(null);
-  const cycleDuration = 6000; // 6 seconds per prompt requirement
+  // 6-second auto-cycle: atoms one-by-one → switch to molecules → back to atoms (loops forever)
+  const cycleDuration = 6000;
 
+  // Ticker: fills the progress ring every 6s
   useEffect(() => {
-    if (!isPlaying || mode !== 'atom') {
+    if (!isPlaying) {
       setProgress(0);
       return;
     }
-
     const intervalStep = 50;
     const stepRatio = (intervalStep / cycleDuration) * 100;
-
     const interval = window.setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          setElementIndex((idx) => (idx + 1) % ELEMENTS.length);
-          return 0;
-        }
-        return prev + stepRatio;
-      });
+      setProgress((prev) => Math.min(prev + stepRatio, 100));
     }, intervalStep);
-
-    timerRef.current = interval;
     return () => clearInterval(interval);
-  }, [isPlaying, mode, elementIndex]);
+  }, [isPlaying]);
+
+  // Watcher: when one full cycle completes — advance the list, or switch mode at the end
+  useEffect(() => {
+    if (!isPlaying || progress < 100) return;
+    if (mode === 'atom') {
+      if (elementIndex >= ELEMENTS.length - 1) {
+        setMode('molecule');
+        setMoleculeIndex(0);
+      } else {
+        setElementIndex(elementIndex + 1);
+      }
+    } else {
+      if (moleculeIndex >= MOLECULES.length - 1) {
+        setMode('atom');
+        setElementIndex(0);
+      } else {
+        setMoleculeIndex(moleculeIndex + 1);
+      }
+    }
+    setProgress(0);
+  }, [progress, isPlaying, mode, elementIndex, moleculeIndex]);
 
   const handleSelectElement = (idx: number) => {
     setElementIndex(idx);
@@ -60,12 +71,21 @@ export default function ScientificAtom3D() {
 
   const handleSelectMolecule = (idx: number) => {
     setMoleculeIndex(idx);
+    setProgress(0);
   };
 
   return (
     <div className="relative w-full max-w-[580px]">
-      {/* FREE 3D SCENE — floats on the page dashboard, larger than the card */}
-      <div className="pointer-events-auto absolute left-1/2 top-1/2 z-0 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2">
+      {/* FREE 3D SCENE — floats on the page dashboard, larger than the card.
+          A radial mask fades everything before the canvas edge, so orbit lines
+          dissolve instead of being cut off at the rectangle boundary. */}
+      <div
+        className="pointer-events-auto absolute left-1/2 top-1/2 z-0 h-[140%] w-[150%] -translate-x-1/2 -translate-y-1/2 sm:h-[170%] sm:w-[180%]"
+        style={{
+          maskImage: 'radial-gradient(ellipse 68% 68% at 50% 50%, black 52%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 68% 68% at 50% 50%, black 52%, transparent 100%)',
+        }}
+      >
         <SceneContainer
           mode={mode}
           element={currentElement}
@@ -74,14 +94,8 @@ export default function ScientificAtom3D() {
         />
       </div>
 
-      {/* CONTROL CARD — transparent frame above the free 3D scene (no blur, no fill) */}
-      <div className="pointer-events-none relative z-10 flex h-[540px] sm:h-[600px] lg:h-[630px] flex-col justify-between overflow-hidden rounded-3xl border border-accent-400/15 p-4 shadow-[0_0_80px_rgba(0,0,0,0.45)] sm:p-5 group">
-        {/* Readability tint only at top & bottom edges — centre stays crystal clear */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-navy-950/60 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-navy-950/60 to-transparent" />
-        {/* Top Background Glow */}
-        <div className="absolute -top-24 -right-24 w-60 h-60 bg-accent-400/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-neon-400/15 rounded-full blur-3xl pointer-events-none" />
+      {/* CONTROLS LAYER — frameless floating UI above the free 3D scene (no card, no border, no glow) */}
+      <div className="pointer-events-none relative z-10 flex h-[460px] sm:h-[600px] lg:h-[630px] flex-col justify-between p-4 sm:p-5">
 
         {/* TOP CONTROLS BAR */}
         <div className="pointer-events-auto relative z-20 flex flex-wrap items-center justify-between gap-2.5">
@@ -89,7 +103,10 @@ export default function ScientificAtom3D() {
         <div className="inline-flex rounded-full p-1 bg-navy-950/80 border border-white/10 backdrop-blur-md">
           <button
             type="button"
-            onClick={() => setMode('atom')}
+            onClick={() => {
+              setMode('atom');
+              setProgress(0);
+            }}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
               mode === 'atom'
                 ? 'bg-gradient-to-r from-accent-400 to-accent-500 text-navy-950 shadow-md font-bold'
@@ -101,7 +118,10 @@ export default function ScientificAtom3D() {
           </button>
           <button
             type="button"
-            onClick={() => setMode('molecule')}
+            onClick={() => {
+              setMode('molecule');
+              setProgress(0);
+            }}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
               mode === 'molecule'
                 ? 'bg-gradient-to-r from-neon-400 to-accent-400 text-navy-950 shadow-md font-bold'
@@ -115,46 +135,44 @@ export default function ScientificAtom3D() {
 
         {/* Right Buttons: Play/Pause */}
         <div className="flex items-center gap-2">
-          {/* Auto-cycle Play/Pause (Atom mode) */}
-          {mode === 'atom' && (
-            <button
-              type="button"
-              onClick={() => setIsPlaying(!isPlaying)}
-              title={isPlaying ? 'Avtomatik almashtirishni to‘xtatish' : 'Avtomatik almashtirishni yoqish'}
-              className="relative p-2 rounded-full bg-navy-950/80 border border-white/10 text-white/80 hover:text-white hover:border-accent-400/40 transition-colors"
-            >
-              {/* Radial countdown ring */}
-              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none p-0.5">
+          {/* Auto-cycle Play/Pause — works in both atom & molecule modes */}
+          <button
+            type="button"
+            onClick={() => setIsPlaying(!isPlaying)}
+            title={isPlaying ? 'Avtomatik almashtirishni to‘xtatish' : 'Avtomatik almashtirishni yoqish'}
+            className="relative p-2 rounded-full bg-navy-950/80 border border-white/10 text-white/80 hover:text-white hover:border-accent-400/40 transition-colors"
+          >
+            {/* Radial countdown ring */}
+            <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none p-0.5">
+              <circle
+                cx="50%"
+                cy="50%"
+                r="14"
+                fill="none"
+                stroke="rgba(45, 255, 176, 0.15)"
+                strokeWidth="2"
+              />
+              {isPlaying && (
                 <circle
                   cx="50%"
                   cy="50%"
                   r="14"
                   fill="none"
-                  stroke="rgba(45, 255, 176, 0.15)"
+                  stroke="#2dffb0"
                   strokeWidth="2"
+                  strokeDasharray={88}
+                  strokeDashoffset={88 - (88 * progress) / 100}
+                  strokeLinecap="round"
+                  className="transition-[stroke-dashoffset] duration-75"
                 />
-                {isPlaying && (
-                  <circle
-                    cx="50%"
-                    cy="50%"
-                    r="14"
-                    fill="none"
-                    stroke="#2dffb0"
-                    strokeWidth="2"
-                    strokeDasharray={88}
-                    strokeDashoffset={88 - (88 * progress) / 100}
-                    strokeLinecap="round"
-                    className="transition-[stroke-dashoffset] duration-75"
-                  />
-                )}
-              </svg>
-              {isPlaying ? (
-                <Pause className="w-3.5 h-3.5 relative z-10 text-accent-400" />
-              ) : (
-                <Play className="w-3.5 h-3.5 relative z-10 text-white/60 ml-0.5" />
               )}
-            </button>
-          )}
+            </svg>
+            {isPlaying ? (
+              <Pause className="w-3.5 h-3.5 relative z-10 text-accent-400" />
+            ) : (
+              <Play className="w-3.5 h-3.5 relative z-10 text-white/60 ml-0.5" />
+            )}
+          </button>
         </div>
       </div>
 

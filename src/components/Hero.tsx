@@ -33,9 +33,9 @@ export default function Hero() {
       ))}
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full">
-        <div className="grid lg:grid-cols-2 gap-8 items-center">
-          {/* Left content */}
-          <div className="text-center lg:text-left order-2 lg:order-1">
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-8 items-center">
+          {/* Left content — z-10 so the free 3D scene never paints over the text */}
+          <div className="relative z-10 text-center lg:text-left order-2 lg:order-1">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

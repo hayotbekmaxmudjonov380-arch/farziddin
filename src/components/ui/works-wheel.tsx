@@ -66,6 +66,10 @@ const DRAG_UNITS = 420;
 const SETTLE = 140;
 /** Fraction of the remaining distance closed each frame. 1 = no smoothing. */
 const EASE = 0.12;
+/** How long a certificate sits at the front before the wheel moves on by itself. */
+const AUTO_MS = 5000;
+/** Quiet time after a manual gesture before the wheel resumes turning itself. */
+const RESUME_MS = 8000;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -125,12 +129,27 @@ export function WorksWheel({
   // branching on it inline is a hydration mismatch. Reduced motion drops the
   // easing, so the wheel lands where it is put instead of gliding there.
   const [reduced, setReduced] = React.useState(false);
+  const [inView, setInView] = React.useState(false);
   React.useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
     const read = () => setReduced(query.matches);
     read();
     query.addEventListener('change', read);
     return () => query.removeEventListener('change', read);
+  }, []);
+
+  // Only run the draw loop while the wheel is on screen.
+  React.useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
+      rootMargin: '80px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   React.useEffect(() => {
@@ -168,10 +187,12 @@ export function WorksWheel({
   }, [stage, count]);
 
   const settling = React.useRef(0);
+  // Manual gestures hold the wheel's self-turning off until this timestamp.
+  const pausedUntil = React.useRef(0);
 
   // One pass per frame: ease toward the target, then write every transform.
   React.useEffect(() => {
-    if (!stage.h) return;
+    if (!stage.h || !inView) return;
     let frame = 0;
     const { ringR, ringScale, drumR, bow } = metrics;
 
@@ -217,7 +238,7 @@ export function WorksWheel({
 
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [metrics, stage.h, count, last, reduced]);
+  }, [metrics, stage.h, count, last, reduced, inView]);
 
   const to = React.useCallback(
     (next: number) => {
@@ -242,6 +263,7 @@ export function WorksWheel({
       // either side of the gap both turned half away. Settle onto an item.
       window.clearTimeout(settling.current);
       settling.current = window.setTimeout(() => to(Math.round(target.current)), SETTLE);
+      pausedUntil.current = Date.now() + RESUME_MS;
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
@@ -252,6 +274,26 @@ export function WorksWheel({
 
   const drag = React.useRef<{ x: number; y: number } | null>(null);
   const dragTouch = React.useRef(false);
+
+  // Self-turning: advance one certificate every AUTO_MS while the wheel is on
+  // screen. A manual gesture pauses it for RESUME_MS; reduced-motion readers
+  // and wheels off screen never turn themselves. At the last certificate the
+  // wheel snaps straight back to the first — same front card, no rewind.
+  React.useEffect(() => {
+    if (reduced || !inView || count < 2) return;
+    const id = window.setInterval(() => {
+      if (drag.current !== null) return;
+      if (Date.now() < pausedUntil.current) return;
+      const next = Math.round(target.current) + 1;
+      if (next > last + 1) {
+        turn.current = 1;
+        target.current = 1;
+      } else {
+        target.current = clamp(next, 0, last + 1);
+      }
+    }, AUTO_MS);
+    return () => window.clearInterval(id);
+  }, [reduced, inView, count, last]);
 
   return (
     <section
@@ -270,6 +312,7 @@ export function WorksWheel({
         onPointerDown={(event) => {
           drag.current = { x: event.clientX, y: event.clientY };
           dragTouch.current = event.pointerType === 'touch';
+          pausedUntil.current = Date.now() + RESUME_MS;
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
@@ -287,12 +330,14 @@ export function WorksWheel({
           // Land on an item rather than between two.
           drag.current = null;
           if (target.current > 1) to(Math.round(target.current));
+          pausedUntil.current = Date.now() + RESUME_MS;
         }}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown') to(Math.round(target.current) + 1);
           else if (event.key === 'ArrowUp') to(Math.round(target.current) - 1);
           else return;
           event.preventDefault();
+          pausedUntil.current = Date.now() + RESUME_MS;
         }}
       >
         <div ref={wheelRef} className="absolute top-1/2 left-1/2 [transform-style:preserve-3d]">

@@ -75,45 +75,45 @@ function QuantumParticles({ count = 45 }: { count?: number }) {
   );
 }
 
-// Interactive Master Controller inside Canvas
+type SharedRefs = {
+  rotation: React.MutableRefObject<{ x: number; y: number }>;
+  scroll: React.MutableRefObject<number>;
+  dragging: React.MutableRefObject<boolean>;
+};
+
+// Interactive Master Controller inside Canvas. All per-frame values live in
+// refs - the scene never triggers a React render while it animates.
 function InteractiveScene({
   mode,
   element,
   molecule,
   motionReduced,
-  scrollOffset,
-  rotation,
+  refs,
 }: {
   mode: 'atom' | 'molecule';
   element: ElementInfo;
   molecule: MoleculeInfo;
   motionReduced: boolean;
-  scrollOffset: number;
-  rotation: { x: number; y: number };
+  refs: SharedRefs;
 }) {
   const masterGroupRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
-    if (masterGroupRef.current) {
-      // Smoothly interpolate user drag rotation + scroll parallax
-      masterGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-        masterGroupRef.current.rotation.x,
-        rotation.x + scrollOffset * 0.4,
-        0.1
-      );
-      masterGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-        masterGroupRef.current.rotation.y,
-        rotation.y,
-        0.1
-      );
+    const group = masterGroupRef.current;
+    if (!group) return;
 
-      // Parallax Y offset
-      masterGroupRef.current.position.y = THREE.MathUtils.lerp(
-        masterGroupRef.current.position.y,
-        -scrollOffset * 0.6,
-        0.08
-      );
-    }
+    const { rotation, scroll, dragging } = refs;
+    // Gentle auto-advance while the user is not holding the scene.
+    if (!motionReduced && !dragging.current) rotation.current.y += 0.003;
+
+    const s = scroll.current;
+    group.rotation.x = THREE.MathUtils.lerp(
+      group.rotation.x,
+      rotation.current.x + s * 0.4,
+      0.1
+    );
+    group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, rotation.current.y, 0.1);
+    group.position.y = THREE.MathUtils.lerp(group.position.y, -s * 0.6, 0.08);
   });
 
   return (
@@ -130,7 +130,7 @@ function InteractiveScene({
       )}
 
       {/* Floating quantum dust */}
-      <QuantumParticles count={motionReduced ? 20 : 45} />
+      <QuantumParticles count={motionReduced ? 12 : 36} />
     </group>
   );
 }
@@ -141,42 +141,41 @@ export default function SceneContainer({
   molecule,
   motionReduced,
 }: SceneContainerProps) {
-  const [rotation, setRotation] = useState({ x: 0.15, y: -0.25 });
-  const [scrollOffset, setScrollOffset] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rotationRef = useRef({ x: 0.15, y: -0.25 });
+  const scrollRef = useRef(0);
   const isDraggingRef = useRef(false);
   const lastPointerRef = useRef({ x: 0, y: 0 });
 
-  // Parallax on scroll
+  // Pause the render loop whenever the scene is off-screen, and pick lighter
+  // GPU settings on touch devices - both are read once, never per frame.
+  const [visible, setVisible] = useState(true);
+  const [coarse] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(pointer: coarse)').matches : false
+  );
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+      rootMargin: '80px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Parallax on scroll - writes a ref, so scrolling never re-renders.
   useEffect(() => {
     const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const maxScroll = window.innerHeight;
-      const progress = Math.min(scrollY / maxScroll, 1.2);
-      setScrollOffset(progress);
+      const maxScroll = window.innerHeight || 1;
+      scrollRef.current = Math.min(window.scrollY / maxScroll, 1.2);
     };
-
+    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Smooth gentle auto-rotation when user is not dragging
-  useEffect(() => {
-    if (motionReduced) return;
-    let animId = 0;
-    const tick = () => {
-      if (!isDraggingRef.current) {
-        setRotation((prev) => ({
-          ...prev,
-          y: prev.y + 0.003,
-        }));
-      }
-      animId = requestAnimationFrame(tick);
-    };
-    animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
-  }, [motionReduced]);
-
-  // Pointer drag controls (Mouse & Touch)
+  // Pointer drag controls (Mouse & Touch) - mutate the ref directly.
   const handlePointerDown = (e: React.PointerEvent) => {
     isDraggingRef.current = true;
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
@@ -188,10 +187,9 @@ export default function SceneContainer({
     const dx = e.clientX - lastPointerRef.current.x;
     const dy = e.clientY - lastPointerRef.current.y;
 
-    setRotation((prev) => ({
-      x: Math.max(-1.2, Math.min(1.2, prev.x + dy * 0.008)),
-      y: prev.y + dx * 0.008,
-    }));
+    const r = rotationRef.current;
+    r.x = Math.max(-1.2, Math.min(1.2, r.x + dy * 0.008));
+    r.y += dx * 0.008;
 
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
   };
@@ -200,8 +198,15 @@ export default function SceneContainer({
     isDraggingRef.current = false;
   };
 
+  const refs: SharedRefs = {
+    rotation: rotationRef,
+    scroll: scrollRef,
+    dragging: isDraggingRef,
+  };
+
   return (
     <div
+      ref={containerRef}
       className="relative w-full h-full cursor-grab active:cursor-grabbing select-none"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -211,13 +216,14 @@ export default function SceneContainer({
       {/* R3F 3D Canvas */}
       <div className="relative z-10 w-full h-full">
         <Canvas
+          frameloop={visible ? 'always' : 'never'}
           camera={{ position: [0, 0, 7.2], fov: 46 }}
           gl={{
-            antialias: true,
+            antialias: !coarse,
             alpha: true,
-            powerPreference: 'high-performance',
+            powerPreference: coarse ? 'default' : 'high-performance',
           }}
-          dpr={[1, 2]}
+          dpr={coarse ? [1, 1.5] : [1, 2]}
         >
           {/* Lights */}
           <ambientLight intensity={0.8} />
@@ -242,8 +248,7 @@ export default function SceneContainer({
             element={element}
             molecule={molecule}
             motionReduced={motionReduced}
-            scrollOffset={scrollOffset}
-            rotation={rotation}
+            refs={refs}
           />
         </Canvas>
       </div>
